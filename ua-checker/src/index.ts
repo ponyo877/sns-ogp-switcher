@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import ogpImage from './image';
 
 const app = new Hono();
 
@@ -6,33 +7,31 @@ const app = new Hono();
 app.use('*', (c, next) => {
   const requestUrl = new URL(c.req.url);
   const sns = requestUrl.searchParams.get('sns');
-  const userAgent = c.req.header('user-agent');
+  const allHeader = c.req.header();
 
-  logRequest(c.req.method, requestUrl.pathname, sns, userAgent);
+  let logHeaders = '';
+  for (const [key, value] of Object.entries(allHeader)) {
+    logHeaders += `${key}: ${value} `
+  }
+
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${c.req.method} ${requestUrl.pathname} SNS: ${sns} logHeaders: ${logHeaders}`);
   return next();
 });
 
-app.get('/ogp-image', (c) => {
+app.get('/image', (c) => {
   c.header('Content-Type', 'image/png');
-  return c.body(null, 200);
+  return c.body(base64ToUint8Array(ogpImage), 200);
 });
 
 app.get('/', (c) => {
   const requestUrl = new URL(c.req.url);
   const sns = requestUrl.searchParams.get('sns');
-  const ogpImageUrl = `${requestUrl.origin}/ogp-image?sns=${sns ?? ''}`;
+  const ogpImageUrl = `${requestUrl.origin}/image?sns=${sns ?? ''}`;
 
   const html = generateHtml(ogpImageUrl);
   return c.html(html);
 });
-
-function logRequest(method: string, pathname: string, sns: string | null, userAgent: string | undefined) {
-  const timestamp = new Date().toISOString();
-  const snsInfo = sns ?? 'N/A';
-  const uaInfo = userAgent ?? 'N/A';
-
-  console.log(`[${timestamp}] ${method} ${pathname} SNS: ${snsInfo} UA: ${uaInfo}`);
-}
 
 function generateHtml(ogpImageUrl: string): string {
   return `<!DOCTYPE html>
@@ -45,6 +44,16 @@ function generateHtml(ogpImageUrl: string): string {
     <h1>OGP Test</h1>
   </body>
 </html>`;
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const len = binary.length;
+  const uint8Array = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    uint8Array[i] = binary.charCodeAt(i);
+  }
+  return uint8Array;
 }
 
 export default app;
