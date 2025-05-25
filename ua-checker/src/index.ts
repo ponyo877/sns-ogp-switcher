@@ -27,17 +27,17 @@ app.get('/image', (c) => {
 app.get('/', (c) => {
   const requestUrl = new URL(c.req.url);
   const sns = requestUrl.searchParams.get('sns');
-  const ogpImageUrl = `${requestUrl.origin}/image?sns=${sns ?? ''}`;
+  const ogpImageURL = `${requestUrl.origin}/image?sns=${sns ?? ''}`;
 
-  const html = generateHtml(ogpImageUrl);
+  const html = generateHtml(ogpImageURL);
   return c.html(html);
 });
 
-function generateHtml(ogpImageUrl: string): string {
+function generateHtml(ogpImageURL: string): string {
   return `<!DOCTYPE html>
 <html>
   <head>
-    <meta property="og:image" content="${ogpImageUrl}" />
+    <meta property="og:image" content="${ogpImageURL}" />
     <title>OGP Test</title>
   </head>
   <body>
