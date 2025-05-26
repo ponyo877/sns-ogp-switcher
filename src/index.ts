@@ -1,21 +1,20 @@
 import { Hono } from 'hono'
 
 const app = new Hono()
-const ENDPOINT = 'https://sns-ogp.folks-chat.com'
+const R2_ENDPOINT = 'https://sns-ogp.folks-chat.com'
+const SELF_ENDPOINT = 'https://sns-ogp-switcher.folks-chat.com'
 
 // Social media platform configurations
 const PLATFORM_CONFIGS = [
-  { userAgent: 'Twitterbot', referer: '', endpoint: 'x' },
-  { userAgent: 'Tumblr', referer: '', endpoint: 'tumblr' },
-  { userAgent: 'www.facebook.com', referer: '', endpoint: 'meta' },
-  { userAgent: 'Bluesky', referer: '', endpoint: 'bluesky' },
-  { userAgent: '', referer: 'mixi.social', endpoint: 'mixi2' },
-  { userAgent: 'MisskeyMediaProxy', referer: '', endpoint: 'misskey' },
-  { userAgent: 'Mastodon', referer: '', endpoint: 'mastodon' },
-  { userAgent: 'Discordbot', referer: '', endpoint: 'discord' },
-  { userAgent: 'Slackbot', referer: '', endpoint: 'slack' },
-  { userAgent: 'line-poker', referer: '', endpoint: 'line' },
-  { userAgent: 'node-fetch', referer: '', endpoint: 'zenn' }, // Maybe distinguishable in this table, but likely to overlap in practice
+  { userAgent: 'Twitterbot', endpoint: 'twitter' },
+  { userAgent: 'Tumblr', endpoint: 'tumblr' },
+  { userAgent: 'www.facebook.com', endpoint: 'meta' },
+  { userAgent: 'Bluesky', endpoint: 'bluesky' },
+  { userAgent: 'SummalyBot', endpoint: 'misskey' },
+  { userAgent: 'Mastodon', endpoint: 'mastodon' },
+  { userAgent: 'Discordbot', endpoint: 'discord' },
+  { userAgent: 'Slackbot', endpoint: 'slack' },
+  { userAgent: 'line-poker', endpoint: 'line' },
 ] as const
 
 function detectPlatform(userAgent: string, referer: string): string {
@@ -23,18 +22,21 @@ function detectPlatform(userAgent: string, referer: string): string {
     if (config.userAgent && userAgent.includes(config.userAgent)) {
       return config.endpoint
     }
-    if (config.referer && referer.includes(config.referer)) {
-      return config.endpoint
-    }
   }
-  return 'default'
+  return 'none'
 }
 
 function generateHtml(ogpImageUrl: string): string {
+  // To X, neccessary to set the og:title or twitter:title
   return `<!DOCTYPE html>
 <html>
   <head>
     <meta property="og:image" content="${ogpImageUrl}" />
+    <meta property="og:title" content="SNS OGP Switcher" />
+    <meta property="og:description" content="This page is a test page for switching OGP images for social media platforms." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sns-ogp-switcher.folks-chat.com" />
+    <meta property="og:site_name" content="SNS OGP Switcher" />
     <title>SNS OGP Switcher</title>
   </head>
   <body>
@@ -55,17 +57,32 @@ function generateHtml(ogpImageUrl: string): string {
     <br/>
   </body> 
   <footer>
-    <p>2025 SNS OGP Switcher by <a href="https://x.com/ponyo877">@ponyo877</a> </p>
+    <p>2025 <a href="https://github.com/ponyo877/sns-ogp-switcher">SNS OGP Switcher</a> by <a href="https://x.com/ponyo877">@ponyo877</a> </p>
   </footer>
 </html>`
 }
 
+app.get('/image', (c) => {
+  const referer = c.req.header('Referer') || ''
+  if (referer.includes('mixi.social')) {
+    const ogpImageURL = `${R2_ENDPOINT}/mixi2.png`
+    return c.redirect(ogpImageURL, 302)
+  }
+  return c.redirect(`${R2_ENDPOINT}/default.png`, 302)
+})
+
 app.get('/', (c) => {
   const userAgent = c.req.header('User-Agent') || ''
   const referer = c.req.header('Referer') || ''
+  console.log(`User-Agent: ${userAgent}, Referer: ${referer}`)
 
   const platform = detectPlatform(userAgent, referer)
-  const ogpImageURL = `${ENDPOINT}/${platform}.png`
+  let ogpImageURL = `${R2_ENDPOINT}/${platform}.png`
+  if (platform === 'none') {
+    ogpImageURL = `${SELF_ENDPOINT}/image`
+  }
+
+  console.log(`ogpImageURL: ${ogpImageURL}`)
 
   const html = generateHtml(ogpImageURL)
   return c.html(html)
